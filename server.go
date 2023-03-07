@@ -87,7 +87,7 @@ func (s *Server) Handler(conn net.Conn) {
 		select {
 		case <-isLive:
 
-		case <-time.After(time.Second * 15): //15秒不活跃就结束会话
+		case <-time.After(time.Second * 3600): //15秒不活跃就结束会话
 			user.SendMsg("空闲超时，退出聊天室")
 			close(user.C)
 			conn.Close() //关闭连接

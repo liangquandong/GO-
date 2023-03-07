@@ -71,6 +71,27 @@ func (s *User) UserMessage(msg string) {
 			s.SendMsg("你已修改用户名：" + newName + "\n")
 		}
 
+	} else if len(msg) > 4 && msg[:3] == "to|" {
+		privateName := strings.Split(msg, "|")[1]
+		if privateName == "" {
+			s.SendMsg("格式错误，私聊请使用“to|私聊对象名称|消息”格式")
+			return
+		}
+		//查看私聊对象是否存在或下线
+		privateUser, ok := s.server.OnlineMap[privateName]
+		if !ok {
+			s.SendMsg("用户不存在或已下线")
+			return
+		}
+		//禁止发空消息
+		privateMsg := strings.Split(msg, "|")[2]
+		if privateMsg == "" {
+			s.SendMsg("消息不能为空")
+			return
+		}
+		//发送消息给对方
+		privateUser.SendMsg("【" + s.Name + "】" + "用户：" + privateMsg)
+
 	} else {
 		s.server.BroadCast(s, msg)
 	}
