@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type User struct {
 	Name   string
@@ -40,9 +43,37 @@ func (s *User) Offline() {
 	s.server.BroadCast(s, "下线")
 }
 
+// 给客户端发送消息
+func (s *User) SendMsg(msg string) {
+	s.conn.Write([]byte(msg))
+}
+
 // 用户业务封装
 func (s *User) UserMessage(msg string) {
-	s.server.BroadCast(s, msg)
+	if msg == "who" {
+		s.server.mapLock.Lock()
+		for _, v := range s.server.OnlineMap {
+			onlineMsg := "用户【" + v.Name + "】在线...\n"
+			s.SendMsg(onlineMsg)
+		}
+		s.server.mapLock.Unlock()
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		newName := strings.Split(msg, "|")[1]
+		_, ok := s.server.OnlineMap[newName]
+		if ok {
+			s.SendMsg("该用户名已被使用")
+		} else {
+			s.server.mapLock.Lock()
+			delete(s.server.OnlineMap, s.Name)
+			s.server.OnlineMap[newName] = s
+			s.server.mapLock.Unlock()
+			s.Name = newName
+			s.SendMsg("你已修改用户名：" + newName + "\n")
+		}
+
+	} else {
+		s.server.BroadCast(s, msg)
+	}
 }
 
 func (u *User) ListenMessage() {
