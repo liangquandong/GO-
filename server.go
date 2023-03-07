@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 /*流程：
@@ -58,6 +59,9 @@ func (s *Server) Handler(conn net.Conn) {
 	//当连接成功也就是用户上线的时候，调用user.go中的NewUser方法
 	user := NewUser(conn, s)
 	user.Online()
+
+	//监听用户活跃状态channel
+	isLive := make(chan bool)
 	//接收客户端的信息
 	go func() {
 		buf := make([]byte, 4096)
@@ -74,9 +78,22 @@ func (s *Server) Handler(conn net.Conn) {
 			}
 			msg := string(buf[:n-1])
 			user.UserMessage(msg)
+			isLive <- true
+			//fmt.Println("阻塞")
 		}
 	}()
-	select {}
+	for {
+
+		select {
+		case <-isLive:
+
+		case <-time.After(time.Second * 15): //15秒不活跃就结束会话
+			user.SendMsg("空闲超时，退出聊天室")
+			close(user.C)
+			conn.Close() //关闭连接
+			return       //退出当前hander。也可以用runtime.Goexit
+		}
+	}
 }
 
 // 启动服务
@@ -86,8 +103,8 @@ func (s *Server) Start() {
 		fmt.Println("net.Listen err", err)
 		return
 	}
-	defer listener.Close()
 	go s.ListenMessager()
+	defer listener.Close()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
